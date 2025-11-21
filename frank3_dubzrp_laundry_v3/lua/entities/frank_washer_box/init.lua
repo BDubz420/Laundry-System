@@ -17,6 +17,28 @@ function ENT:Initialize()
     self.UseCount = 0
 end
 
+local function SetupSpawn(ply, tr, classname)
+    if not tr.Hit then return end
+
+    local ent = ents.Create(classname)
+    if not IsValid(ent) then return end
+
+    local ang = Angle(0, ply:EyeAngles().y, 0)
+    ent:SetAngles(ang)
+    ent:SetPos(tr.HitPos + tr.HitNormal * 12)
+    ent:Spawn()
+    ent:Activate()
+
+    local phys = ent:GetPhysicsObject()
+    if IsValid(phys) then phys:Wake() end
+
+    return ent
+end
+
+function ENT:SpawnFunction(ply, tr, classname)
+    return SetupSpawn(ply, tr, classname or "frank_washer_box")
+end
+
 local function IsValidUse(ply)
     return IsValid(ply) and ply:IsPlayer() and ply:KeyPressed(IN_USE)
 end

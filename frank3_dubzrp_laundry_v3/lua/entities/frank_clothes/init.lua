@@ -15,6 +15,7 @@ function ENT:Initialize()
 
     self:SetUseType(SIMPLE_USE)
     self._nextPickup = 0
+    self._nextTouch  = 0
 
     if not self.ClothesState then
         self.ClothesState = "unwashed"
@@ -27,6 +28,51 @@ function ENT:Initialize()
     elseif self.ClothesState == "dried" then
         self:SetDriedSkin()
     end
+end
+
+local function TryDeposit(self, ent)
+    if not IsValid(ent) then return false end
+
+    local class = ent:GetClass()
+    local state = self.ClothesState or "dried"
+
+    if state == "unwashed" and class == "frank_washer" then
+        ent:AddUnwashedClothes(self)
+        return true
+    elseif state == "washed" and class == "frank_dryer" then
+        ent:AddWashedClothes(self)
+        return true
+    elseif state == "dried" then
+        if class == "frank_dryer_box" then
+            return ent.AddDriedClothes and ent:AddDriedClothes(self)
+        elseif class == "frank_laundry_cart" then
+            return ent.AddDriedClothes and ent:AddDriedClothes(self)
+        end
+    end
+
+    return false
+end
+
+local function SetupSpawn(ply, tr, classname)
+    if not tr.Hit then return end
+
+    local ent = ents.Create(classname)
+    if not IsValid(ent) then return end
+
+    local ang = Angle(0, ply:EyeAngles().y, 0)
+    ent:SetAngles(ang)
+    ent:SetPos(tr.HitPos + tr.HitNormal * 12)
+    ent:Spawn()
+    ent:Activate()
+
+    local phys = ent:GetPhysicsObject()
+    if IsValid(phys) then phys:Wake() end
+
+    return ent
+end
+
+function ENT:SpawnFunction(ply, tr, classname)
+    return SetupSpawn(ply, tr, classname or "frank_clothes")
 end
 
 function ENT:SetUnwashedSkin()
@@ -79,25 +125,25 @@ function ENT:Think()
         state = "washed"
     end
 
-    for _, ent in ipairs(ents.FindInSphere(pos, 20)) do
-        if not IsValid(ent) then continue end
-        local class = ent:GetClass()
+    if self._nextTouch > CurTime() then
+        self:NextThink(CurTime() + 0.1)
+        return true
+    end
 
-        if state == "unwashed" and class == "frank_washer" then
-            ent:AddUnwashedClothes(self)
+    for _, ent in ipairs(ents.FindInSphere(pos, 20)) do
+        if TryDeposit(self, ent) then
+            self._nextTouch = CurTime() + 0.1
             break
-        elseif state == "washed" and class == "frank_dryer" then
-            ent:AddWashedClothes(self)
-            break
-        elseif state == "dried" then
-            if class == "frank_dryer_box" then
-                if ent.AddDriedClothes and ent:AddDriedClothes(self) then break end
-            elseif class == "frank_laundry_cart" then
-                if ent.AddDriedClothes and ent:AddDriedClothes(self) then break end
-            end
         end
     end
 
     self:NextThink(CurTime() + 0.2)
     return true
+end
+
+function ENT:Touch(ent)
+    if self._nextTouch > CurTime() then return end
+    if TryDeposit(self, ent) then
+        self._nextTouch = CurTime() + 0.1
+    end
 end

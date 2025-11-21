@@ -15,6 +15,29 @@ function ENT:Initialize()
 
     self:SetUseType(SIMPLE_USE)
     self._nextPickup = 0
+    self._touchCooldown = 0
+end
+
+local function SetupSpawn(ply, tr, classname)
+    if not tr.Hit then return end
+
+    local ent = ents.Create(classname)
+    if not IsValid(ent) then return end
+
+    local ang = Angle(0, ply:EyeAngles().y, 0)
+    ent:SetAngles(ang)
+    ent:SetPos(tr.HitPos + tr.HitNormal * 12)
+    ent:Spawn()
+    ent:Activate()
+
+    local phys = ent:GetPhysicsObject()
+    if IsValid(phys) then phys:Wake() end
+
+    return ent
+end
+
+function ENT:SpawnFunction(ply, tr, classname)
+    return SetupSpawn(ply, tr, classname or "frank_detergent")
 end
 
 local function PickupUse(self, ply)
@@ -38,6 +61,11 @@ function ENT:Use(ply)
 end
 
 function ENT:Think()
+    if self._touchCooldown > CurTime() then
+        self:NextThink(CurTime() + 0.1)
+        return true
+    end
+
     local pos = self:GetPos()
     for _, ent in ipairs(ents.FindInSphere(pos, 16)) do
         if IsValid(ent) and ent:GetClass() == "frank_washer" then
@@ -46,6 +74,15 @@ function ENT:Think()
         end
     end
 
+    self._touchCooldown = CurTime() + 0.1
     self:NextThink(CurTime() + 0.2)
     return true
+end
+
+function ENT:Touch(ent)
+    if self._touchCooldown > CurTime() then return end
+    if IsValid(ent) and ent:GetClass() == "frank_washer" then
+        self._touchCooldown = CurTime() + 0.1
+        ent:AddDetergent(self)
+    end
 end

@@ -17,8 +17,36 @@ function ENT:Initialize()
 
     self:SetFillCount(0)
     self:SetRequiredFill(10)
+    self:SetOutputCount(0)
     self:SetIsReady(false)
     self:SetIsRunning(false)
+    self:SetStartTime(0)
+    self:SetEndTime(0)
+
+    self._useCooldown   = 0
+    self._touchCooldown = 0
+end
+
+local function SetupSpawn(ply, tr, classname)
+    if not tr.Hit then return end
+
+    local ent = ents.Create(classname)
+    if not IsValid(ent) then return end
+
+    local ang = Angle(0, ply:EyeAngles().y, 0)
+    ent:SetAngles(ang)
+    ent:SetPos(tr.HitPos + tr.HitNormal * 16)
+    ent:Spawn()
+    ent:Activate()
+
+    local phys = ent:GetPhysicsObject()
+    if IsValid(phys) then phys:Wake() end
+
+    return ent
+end
+
+function ENT:SpawnFunction(ply, tr, classname)
+    return SetupSpawn(ply, tr, classname or "frank_dryer")
 end
 
 function ENT:AddWashedClothes(ent)
@@ -30,7 +58,7 @@ function ENT:AddWashedClothes(ent)
     self:SetFillCount(fill + 1)
     if IsValid(ent) then ent:Remove() end
 
-    if self:GetFillCount() >= required then
+    if self:GetFillCount() > 0 and self:GetFillCount() <= required then
         self:SetIsReady(true)
     end
 end
@@ -41,11 +69,55 @@ end
 
 function ENT:Use(ply)
     if not IsValidUse(ply) then return end
+    if self._useCooldown > CurTime() then return end
+    self._useCooldown = CurTime() + 0.2
+
+    if self:GetOutputCount() > 0 then
+        self:DispenseOneCloth()
+        return
+    end
+
     if self:GetIsRunning() then return end
     if not self:GetIsReady() then return end
 
+    self._baseAng = self:GetAngles()
+    self:BeginCycle()
+end
+
+local function CreateClothes(pos, ang)
+    local c = ents.Create("frank_clothes")
+    if not IsValid(c) then return end
+
+    c.ClothesState = "dried"
+    if c.SetDriedSkin then c:SetDriedSkin() end
+    c:SetPos(pos)
+    c:SetAngles(ang)
+    c:Spawn()
+    local phys = c:GetPhysicsObject()
+    if IsValid(phys) then
+        phys:ApplyForceCenter(c:GetForward() * 140 + Vector(0,0,60))
+    end
+end
+
+function ENT:DispenseOneCloth()
+    if self:GetOutputCount() <= 0 then return end
+
+    self:SetOutputCount(self:GetOutputCount() - 1)
+    local origin = self:GetPos() + self:GetForward() * 26 + Vector(0, 0, 20)
+    CreateClothes(origin, self:GetAngles())
+end
+
+local function RunDuration()
+    return 10
+end
+
+function ENT:BeginCycle()
+    local duration = RunDuration()
+
     self:SetIsRunning(true)
     self:SetIsReady(false)
+    self:SetStartTime(CurTime())
+    self:SetEndTime(CurTime() + duration)
 
     self:EmitSound("buttons/button3.wav", 75, 100, 1, CHAN_AUTO)
     self:EmitSound("physics/metal/metal_box_impact_hard2.wav", 70, 100, 1, CHAN_AUTO)
@@ -57,11 +129,7 @@ function ENT:Use(ply)
         self._loopSound = loopSound
     end
 
-    local startPos = self:GetPos()
     local startAng = self:GetAngles()
-    self._basePos  = startPos
-    self._baseAng  = startAng
-
     local pattern = {
         Angle(0.4, 0.3, -0.2),
         Angle(-0.3, -0.4, 0.4),
@@ -70,7 +138,7 @@ function ENT:Use(ply)
     }
     local step = 1
     local shakeID = "Frank_DryerShake_" .. self:EntIndex()
-    timer.Create(shakeID, 0.1, math.floor(10 / 0.1), function()
+    timer.Create(shakeID, 0.1, math.floor(duration / 0.1), function()
         if not IsValid(self) or not self:GetIsRunning() then
             timer.Remove(shakeID)
             return
@@ -80,44 +148,50 @@ function ENT:Use(ply)
         if step > #pattern then step = 1 end
     end)
 
-    timer.Simple(10, function()
+    timer.Simple(duration, function()
         if not IsValid(self) then return end
-
-        if self._loopSound then
-            self._loopSound:FadeOut(0.5)
-            timer.Simple(0.6, function()
-                if IsValid(self._loopSound) then self._loopSound:Stop() end
-                self._loopSound = nil
-            end)
-        end
-
-        self:SetPos(startPos)
-        self:SetAngles(startAng)
-
-        self:EmitSound("buttons/button9.wav", 75, 100, 1, CHAN_AUTO)
-
-        local origin = self:GetPos() + self:GetForward() * 30 + Vector(0, 0, 20)
-        local count = self:GetFillCount()
-        for i = 1, count do
-            timer.Simple(0.08 * (i-1), function()
-                if not IsValid(self) then return end
-                local c = ents.Create("frank_clothes")
-                if IsValid(c) then
-                    c.ClothesState = "dried"
-                    if c.SetDriedSkin then c:SetDriedSkin() end
-                    c:SetPos(origin + self:GetForward() * (i*6))
-                    c:Spawn()
-                    local phys = c:GetPhysicsObject()
-                    if IsValid(phys) then
-                        phys:ApplyForceCenter(self:GetForward() * 200 + Vector(0,0,80))
-                    end
-                end
-            end)
-        end
-
-        self:SetFillCount(0)
-        self:SetIsRunning(false)
+        self:FinishCycle()
     end)
+end
+
+function ENT:FinishCycle()
+    if not self:GetIsRunning() then return end
+
+    if self._loopSound then
+        self._loopSound:FadeOut(0.5)
+        timer.Simple(0.6, function()
+            if IsValid(self._loopSound) then self._loopSound:Stop() end
+            self._loopSound = nil
+        end)
+    end
+
+    self:SetAngles(self._baseAng or self:GetAngles())
+
+    local processed = self:GetFillCount()
+    self:SetOutputCount(self:GetOutputCount() + processed)
+    self:SetFillCount(0)
+    self:SetIsRunning(false)
+    self:SetStartTime(0)
+    self:SetEndTime(0)
+end
+
+function ENT:Touch(ent)
+    if self._touchCooldown > CurTime() then return end
+    if not IsValid(ent) then return end
+
+    if ent:GetClass() == "frank_clothes" and ent.ClothesState == "washed" then
+        self._touchCooldown = CurTime() + 0.1
+        self:AddWashedClothes(ent)
+    end
+end
+
+function ENT:Think()
+    if self:GetIsRunning() and self:GetEndTime() > 0 and CurTime() >= self:GetEndTime() then
+        self:FinishCycle()
+    end
+
+    self:NextThink(CurTime() + 0.1)
+    return true
 end
 
 function ENT:OnRemove()
