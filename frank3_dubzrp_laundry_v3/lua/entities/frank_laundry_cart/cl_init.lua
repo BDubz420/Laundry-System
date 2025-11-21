@@ -15,11 +15,8 @@ function ENT:Draw()
 
     local status = "Waiting for clothes"
     local color  = Color(200,200,200)
-    if self.GetIsProcessing and self:GetIsProcessing() then
-        status = "Processing..."
-        color  = Color(180,200,255)
-    elseif count >= max then
-        status = "FULL - Press USE"
+    if count > 0 then
+        status = "Press USE to cash out"
         color  = Color(120,255,120)
     end
 
