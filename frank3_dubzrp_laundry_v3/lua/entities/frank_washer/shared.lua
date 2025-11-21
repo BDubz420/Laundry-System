@@ -6,7 +6,7 @@ ENT.Type      = "anim"
 ENT.Base      = "base_gmodentity"
 ENT.PrintName = "Washer"
 ENT.Author    = "frank3"
-ENT.Category  = "DubzRP - frank3 addons"
+ENT.Category  = "Franks Laundry System"
 ENT.Spawnable = true
 ENT.RenderGroup = RENDERGROUP_BOTH
 
