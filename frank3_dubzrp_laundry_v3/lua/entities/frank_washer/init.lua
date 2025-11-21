@@ -121,12 +121,19 @@ function ENT:DispenseOneCloth()
     CreateClothes("washed", origin, self:GetAngles())
 end
 
-local function RunDuration()
-    return 10
+local function RunDuration(load, maxLoad)
+    maxLoad = math.max(maxLoad or 1, 1)
+    load = math.max(load or 0, 0)
+
+    local fullLoadTime = 10
+    local perItemTime = fullLoadTime / maxLoad
+    local duration = load * perItemTime
+
+    return math.Clamp(duration, 3, fullLoadTime)
 end
 
 function ENT:BeginCycle()
-    local duration = RunDuration()
+    local duration = RunDuration(self:GetFillCount(), self:GetRequiredFill())
 
     self:SetIsRunning(true)
     self:SetIsReady(false)
@@ -212,10 +219,10 @@ end
 function ENT:Touch(ent)
     if self._touchCooldown > CurTime() then return end
     if IsValidClothes(ent) then
-        self._touchCooldown = CurTime() + 0.1
+        self._touchCooldown = CurTime() + 0.25
         self:AddUnwashedClothes(ent)
     elseif IsValid(ent) and ent:GetClass() == "frank_detergent" then
-        self._touchCooldown = CurTime() + 0.1
+        self._touchCooldown = CurTime() + 0.25
         self:AddDetergent(ent)
     end
 end

@@ -116,6 +116,10 @@ function ENT:Use(ply)
 end
 
 function ENT:Think()
+    -- In case this entity loads from a saved state without Initialize being
+    -- rerun, ensure cooldown trackers always have a sane default.
+    self._nextTouch = self._nextTouch or 0
+
     local pos = self:GetPos()
     local mat = self:GetMaterial() or ""
     local state = "dried"
@@ -132,7 +136,7 @@ function ENT:Think()
 
     for _, ent in ipairs(ents.FindInSphere(pos, 20)) do
         if TryDeposit(self, ent) then
-            self._nextTouch = CurTime() + 0.1
+            self._nextTouch = CurTime() + 0.25
             break
         end
     end
@@ -142,8 +146,10 @@ function ENT:Think()
 end
 
 function ENT:Touch(ent)
+    self._nextTouch = self._nextTouch or 0
+
     if self._nextTouch > CurTime() then return end
     if TryDeposit(self, ent) then
-        self._nextTouch = CurTime() + 0.1
+        self._nextTouch = CurTime() + 0.25
     end
 end

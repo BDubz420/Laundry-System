@@ -74,7 +74,7 @@ function ENT:Think()
         end
     end
 
-    self._touchCooldown = CurTime() + 0.1
+    self._touchCooldown = CurTime() + 0.25
     self:NextThink(CurTime() + 0.2)
     return true
 end
@@ -82,7 +82,7 @@ end
 function ENT:Touch(ent)
     if self._touchCooldown > CurTime() then return end
     if IsValid(ent) and ent:GetClass() == "frank_washer" then
-        self._touchCooldown = CurTime() + 0.1
+        self._touchCooldown = CurTime() + 0.25
         ent:AddDetergent(self)
     end
 end

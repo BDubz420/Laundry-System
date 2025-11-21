@@ -125,10 +125,10 @@ function ENT:Touch(ent)
     if not IsValid(ent) then return end
 
     if ent:GetClass() == "frank_clothes" and ent.ClothesState == "dried" then
-        self._touchCooldown = CurTime() + 0.1
+        self._touchCooldown = CurTime() + 0.25
         self:AddDriedClothes(ent)
     elseif ent:GetClass() == "frank_dryer_box" then
-        self._touchCooldown = CurTime() + 0.1
+        self._touchCooldown = CurTime() + 0.25
         self:AddClosedBox(ent)
     end
 end

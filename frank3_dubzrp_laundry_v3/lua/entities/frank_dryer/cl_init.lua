@@ -23,7 +23,7 @@ function ENT:Draw()
     local color    = Color(255, 200, 160)
 
     if running then
-        status = string.format("Drying... %.1fs", timeLeft)
+        status = "Drying..."
         color  = Color(255, 220, 120)
     elseif stored > 0 then
         status = string.format("%d Dried Clothes Ready - Press USE", stored)
@@ -39,7 +39,7 @@ function ENT:Draw()
     local lines = {
         {
             text  = "Capacity",
-            value = string.format("Max %d Shirts", required),
+            value = string.format("%d / %d Shirts", fill, required),
             color = Color(180,255,200),
             dot   = true
         },
