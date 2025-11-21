@@ -10,53 +10,63 @@ function ENT:Draw()
     local ang = Angle(0, eye.y - 90, 90)
     local pos = self:GetPos() + Vector(0, 0, 30)
 
-    local required = self.GetRequiredFill and self:GetRequiredFill() or 5
-    local fill     = self.GetFillCount and self:GetFillCount() or 0
+    local required   = self.GetRequiredFill and self:GetRequiredFill() or 5
+    local fill       = self.GetFillCount and self:GetFillCount() or 0
+    local stored     = self.GetOutputCount and self:GetOutputCount() or 0
+    local hasSoap    = self.GetHasDetergent and self:GetHasDetergent()
+    local running    = self.GetIsRunning and self:GetIsRunning()
+    local ready      = self.GetIsReady and self:GetIsReady()
+    local startTime  = self.GetStartTime and self:GetStartTime() or 0
+    local endTime    = self.GetEndTime and self:GetEndTime() or 0
+    local timeLeft   = math.max(0, endTime - CurTime())
 
     local status   = "Add Clothes"
     local color    = Color(255, 180, 180)
 
-    if self.GetIsRunning and self:GetIsRunning() then
+    if running then
         status = "Washing..."
         color  = Color(100, 200, 255)
-    elseif self.GetIsReady and self:GetIsReady() then
+    elseif stored > 0 then
+        status = string.format("%d Washed Clothes Ready - Press USE", stored)
+        color  = Color(120, 255, 120)
+    elseif ready then
         status = "READY - Press USE"
         color  = Color(120, 255, 120)
-    elseif fill >= required then
-        if self.GetHasDetergent and self:GetHasDetergent() then
-            status = "Press USE to Wash"
-            color  = Color(200, 255, 200)
-        else
-            status = "Add Detergent"
-            color  = Color(255, 220, 120)
-        end
-    elseif fill > 0 and (not self.GetHasDetergent or not self:GetHasDetergent()) then
-        status = "Add Clothes + Detergent"
+    elseif fill > 0 and not hasSoap then
+        status = "Need Detergent"
+        color  = Color(255, 220, 120)
+    elseif fill > 0 then
+        status = "Add More Clothes or Start"
     end
 
     local lines = {
         {
-            text  = "Required Clothes",
-            value = string.format("%d Shirts", required),
+            text  = "Capacity",
+            value = string.format("%d / %d Shirts", fill, required),
             color = Color(180,255,200),
             dot   = true
         },
         {
             text  = "Detergent",
-            value = "1 Bottle",
-            color = Color(255,255,120),
+            value = hasSoap and "Added" or "Missing",
+            color = hasSoap and Color(120, 255, 120) or Color(255,255,120),
             dot   = true
         },
         {
             text  = "Output",
-            value = "5 Washed Clothes",
+            value = stored > 0 and string.format("%d Ready", stored) or "Washed Clothes",
             color = Color(200,200,255),
             dot   = false
         }
     }
 
     local frac = 0
-    if required > 0 then
+    local progressText = string.format("%d / %d Shirts", fill, required)
+    if running and endTime > startTime then
+        local duration = endTime - startTime
+        frac = 1 - math.Clamp(timeLeft / duration, 0, 1)
+        progressText = string.format("Time Left: %.1fs", timeLeft)
+    elseif required > 0 then
         frac = math.Clamp(fill / required, 0, 1)
     end
 
@@ -65,7 +75,7 @@ function ENT:Draw()
         status       = status,
         statusColor  = color,
         progressFrac = frac,
-        progressText = string.format("%d / %d Shirts", fill, required),
+        progressText = progressText,
         lines        = lines
     })
 end
